@@ -1,17 +1,6 @@
 from rest_framework.permissions import BasePermission
 
-
 class HasValidWebhookSecret(BasePermission):
-    """
-    Stand-in for provider signature verification (e.g. Stripe's
-    Stripe-Signature header + webhook signing secret). For learning
-    purposes this checks a shared-secret header so the endpoint isn't
-    wide open, without needing a real provider account.
-
-    Swap the body of has_permission() for real HMAC signature
-    verification once you're pointing this at an actual provider.
-    """
-
     def has_permission(self, request, view):
         from django.conf import settings
 

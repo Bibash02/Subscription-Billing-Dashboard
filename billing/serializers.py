@@ -1,13 +1,10 @@
 from rest_framework import serializers
-
 from .models import Customer, Invoice, Plan, Subscription, PaymentEvent
-
 
 class CustomerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Customer
         fields = ["id", "name", "email", "external_customer_id", "created_at"]
-
 
 class PlanSerializer(serializers.ModelSerializer):
     class Meta:
@@ -17,11 +14,7 @@ class PlanSerializer(serializers.ModelSerializer):
             "trial_period_days", "is_active",
         ]
 
-
 class SubscriptionSerializer(serializers.ModelSerializer):
-    # status is intentionally read-only here: the only supported way to
-    # change it is through the state-machine methods in services.py /
-    # models.py, never a raw PATCH from the API.
     status = serializers.CharField(read_only=True)
     customer = serializers.PrimaryKeyRelatedField(queryset=Customer.objects.all())
     plan = serializers.PrimaryKeyRelatedField(queryset=Plan.objects.all())
@@ -48,7 +41,6 @@ class InvoiceSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["paid_at", "created_at", "updated_at"]
 
-
 class PaymentEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentEvent
@@ -57,10 +49,8 @@ class PaymentEventSerializer(serializers.ModelSerializer):
             "error_message", "processed_at", "created_at",
         ]
         read_only_fields = fields
-
-
+        
 class WebhookEventInputSerializer(serializers.Serializer):
-    """Shape of an inbound webhook payload from the (simulated) provider."""
     id = serializers.CharField(help_text="Provider's unique event id")
     type = serializers.CharField(help_text="Event type, e.g. invoice.payment_succeeded")
     data = serializers.DictField()

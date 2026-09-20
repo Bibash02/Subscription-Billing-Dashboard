@@ -1,8 +1,6 @@
 import uuid
-
 from django.db import models
 from django.utils import timezone
-
 
 class TimeStampedModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
@@ -11,18 +9,13 @@ class TimeStampedModel(models.Model):
     class Meta:
         abstract = True
 
-
 class Customer(TimeStampedModel):
     name = models.CharField(max_length=255)
     email = models.EmailField(unique=True)
-    # id assigned by whatever payment provider we're integrating with
-    # (Stripe customer id, etc). Nullable because a customer can exist
-    # in our system before they're ever pushed to the provider.
     external_customer_id = models.CharField(max_length=255, blank=True, null=True, unique=True)
 
     def __str__(self):
         return f"{self.name} <{self.email}>"
-
 
 class Plan(TimeStampedModel):
     class Interval(models.TextChoices):
@@ -40,10 +33,8 @@ class Plan(TimeStampedModel):
     def __str__(self):
         return f"{self.name} ({self.amount} {self.currency}/{self.interval})"
 
-
 class InvalidTransitionError(Exception):
     """Raised when a status transition is not allowed by the state machine."""
-
 
 class Subscription(TimeStampedModel):
     class Status(models.TextChoices):
@@ -53,10 +44,6 @@ class Subscription(TimeStampedModel):
         CANCELED = "canceled", "Canceled"
         EXPIRED = "expired", "Expired"
 
-    # Which transitions are legal, keyed by current status. This is the
-    # single source of truth for how a subscription is allowed to move --
-    # nothing else in the codebase (views included) should set `status`
-    # directly. See services.py for the functions that call these.
     ALLOWED_TRANSITIONS = {
         Status.TRIALING: {Status.ACTIVE, Status.CANCELED, Status.PAST_DUE, Status.EXPIRED},
         Status.ACTIVE: {Status.PAST_DUE, Status.CANCELED, Status.EXPIRED},
@@ -79,7 +66,6 @@ class Subscription(TimeStampedModel):
 
     class Meta:
         constraints = [
-            # A customer shouldn't have two live subscriptions to the same plan.
             models.UniqueConstraint(
                 fields=["customer", "plan"],
                 condition=models.Q(status__in=["trialing", "active", "past_due"]),
@@ -91,11 +77,6 @@ class Subscription(TimeStampedModel):
         return f"{self.customer} - {self.plan} [{self.status}]"
 
     def _transition_to(self, new_status, **field_updates):
-        """
-        Central choke point for every status change. Raises if the
-        transition isn't in ALLOWED_TRANSITIONS so a bug elsewhere can't
-        silently push a subscription into a nonsense state.
-        """
         allowed = self.ALLOWED_TRANSITIONS.get(self.status, set())
         if new_status != self.status and new_status not in allowed:
             raise InvalidTransitionError(
@@ -124,7 +105,6 @@ class Subscription(TimeStampedModel):
 
     def expire(self):
         self._transition_to(self.Status.EXPIRED)
-
 
 class Invoice(TimeStampedModel):
     class Status(models.TextChoices):
@@ -182,16 +162,7 @@ class Invoice(TimeStampedModel):
     def void(self):
         self._transition_to(self.Status.VOID)
 
-
 class PaymentEvent(TimeStampedModel):
-    """
-    One row per inbound event from the payment provider (Stripe-style
-    webhook, or whatever you're simulating). `external_event_id` is
-    unique so the same event landing twice -- which providers explicitly
-    warn you will happen -- is a no-op the second time, not a double
-    application of side effects.
-    """
-
     class Status(models.TextChoices):
         RECEIVED = "received", "Received"
         PROCESSED = "processed", "Processed"
