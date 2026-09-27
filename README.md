@@ -13,7 +13,10 @@ python manage.py createsuperuser
 python manage.py runserver
 ```
 
-API lives under `/api/` (DRF browsable API), admin under `/admin/`.
+Billing endpoints live under `/billing/`, account endpoints under `/accounts/`,
+and the OpenAPI/Swagger documentation is available at `/api/docs/`. The webhook
+accepts `POST /billing/webhooks/payments/`; Swagger's **Try it out** form
+includes its JSON request body and the optional `X-Webhook-Secret` header.
 
 ## Models (`billing/models.py`)
 

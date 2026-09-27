@@ -1,8 +1,8 @@
-from rest_framework import status as http_status
-from rest_framework import viewsets
+from rest_framework import generics, status as http_status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.views import APIView
+
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 
 from .models import Customer, Invoice, Plan, PaymentEvent, Subscription
 from .permissions import HasValidWebhookSecret
@@ -13,19 +13,23 @@ from .serializers import (
     PlanSerializer,
     SubscriptionSerializer,
     WebhookEventInputSerializer,
+    WebhookEventResponseSerializer,
 )
 from .services import WebhookProcessingError, process_webhook_event
 
+@extend_schema(tags=["Customer"])
 class CustomerViewSet(viewsets.ModelViewSet):
     queryset = Customer.objects.all().order_by("-created_at")
     serializer_class = CustomerSerializer
     permission_classes = [IsAuthenticated]
 
+@extend_schema(tags=["Plan"])
 class PlanViewSet(viewsets.ModelViewSet):
     queryset = Plan.objects.all().order_by("name")
     serializer_class = PlanSerializer
     permission_classes = [IsAuthenticated]
 
+@extend_schema(tags=["Subscription"])
 class SubscriptionViewSet(viewsets.ModelViewSet):
     queryset = Subscription.objects.select_related("customer", "plan").order_by("-created_at")
     serializer_class = SubscriptionSerializer
@@ -42,6 +46,7 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
             qs = qs.filter(status=status_filter)
         return qs
 
+@extend_schema(tags=["Invoice"])
 class InvoiceViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Invoice.objects.select_related("customer", "subscription").order_by("-created_at")
     serializer_class = InvoiceSerializer
@@ -57,16 +62,31 @@ class InvoiceViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(status=status_filter)
         return qs
 
+@extend_schema(tags=["Payment Event"])
 class PaymentEventViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = PaymentEvent.objects.all().order_by("-created_at")
     serializer_class = PaymentEventSerializer
     permission_classes = [IsAuthenticated]
 
-class WebhookIntakeView(APIView):
+@extend_schema(tags=["Webhook Intake"])
+class WebhookIntakeView(generics.GenericAPIView):
     permission_classes = [HasValidWebhookSecret]
+    serializer_class = WebhookEventInputSerializer
 
+    @extend_schema(
+        request=WebhookEventInputSerializer,
+        responses={http_status.HTTP_200_OK: WebhookEventResponseSerializer},
+        parameters=[
+            OpenApiParameter(
+                name="X-Webhook-Secret",
+                type=str,
+                location=OpenApiParameter.HEADER,
+                description="Shared webhook secret, when configured by the server.",
+            )
+        ],
+    )
     def post(self, request):
-        serializer = WebhookEventInputSerializer(data=request.data)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         validated = serializer.validated_data
 

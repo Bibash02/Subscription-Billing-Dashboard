@@ -54,3 +54,9 @@ class WebhookEventInputSerializer(serializers.Serializer):
     id = serializers.CharField(help_text="Provider's unique event id")
     type = serializers.CharField(help_text="Event type, e.g. invoice.payment_succeeded")
     data = serializers.DictField()
+
+class WebhookEventResponseSerializer(serializers.Serializer):
+    received = serializers.BooleanField()
+    status = serializers.CharField()
+    event_id = serializers.UUIDField(required=False)
+    detail = serializers.CharField(required=False)
